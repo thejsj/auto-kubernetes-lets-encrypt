@@ -30,7 +30,7 @@ spec:
           value: go-test.jorge.fail
         - name: EMAIL
           value: jorge.silva@thejsj.com
-        - name: SECRET
+        - name: SECRET_NAME
           value: auto-kubernetes-lets-encrypt-certs
       restartPolicy: Never
 ---

@@ -81,7 +81,9 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 
 func GenerateCerts(domains []string, email string) error {
 	legoUser := getUser(email)
-	client, err := acme.NewClient("http://192.168.99.100:4000", &legoUser, acme.RSA2048)
+	// https://github.com/xenolf/lego/blob/master/cli.go#L120
+	caServerHost := Getenv("CA_SERVER", "https://acme-v01.api.letsencrypt.org/directory")
+	client, err := acme.NewClient(caServerHost, &legoUser, acme.RSA2048)
 	if err != nil {
 		log.Printf("Error creating acme client: %s", err)
 		return err
