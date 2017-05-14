@@ -1,14 +1,18 @@
 package main
 
 import (
-	"crypto/tls"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
-	"golang.org/x/crypto/acme/autocert"
+	"github.com/xenolf/lego/acme"
 )
 
 type HealthResponse struct {
@@ -25,19 +29,19 @@ var CERTS_LOCATION = "/var/certs/"
 
 func mainHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Add validation for these
-	domains := Getenv("DOMAINS", "")
+	domainsRaw := Getenv("DOMAINS", "")
 	// TODO: Add email validation
 	email := Getenv("EMAIL", "")
 	// TODO: Make sure secret exists
 	secretName := Getenv("SECRET_NAME", "")
 
 	envInputs := make(map[string]string)
-	envInputs["DOMAINS"] = domains
+	envInputs["DOMAINS"] = domainsRaw
 	envInputs["EMAIL"] = email
 	envInputs["SECRET_NAME"] = secretName
 	log.Printf("ENV inputs: %s", envInputs)
-	if domains == "" || email == "" || secretName == "" {
-		log.Error("Environment variables not setup correctly: %s", envInputs)
+	if domainsRaw == "" || email == "" || secretName == "" {
+		log.Printf("Environment variables not setup correctly: %s", envInputs)
 		errorResponse := &ErrorResponse{
 			Error: "The following ENV variables are required: `DOMAINS`, `EMAIL`, and `SECRET_NAME`",
 			Data:  envInputs}
@@ -48,7 +52,7 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Looking for kuberentes namespace in: %s", NAMESPACE_LOCATION)
 	fileData, err := ioutil.ReadFile(NAMESPACE_LOCATION)
 	if err != nil {
-		log.Error("Kubernetes namespace not found in %s", NAMESPACE_LOCATION)
+		log.Printf("Kubernetes namespace not found in %s", NAMESPACE_LOCATION)
 		namespaceInputs := make(map[string]string)
 		namespaceInputs["NAMESPACE_LOCATION"] = NAMESPACE_LOCATION
 		errorResponse := &ErrorResponse{
@@ -61,23 +65,88 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Kubernetes namespace used: %s", namespace)
 	log.Printf("Starting cert manager. Placing certs in: %s", CERTS_LOCATION)
 	// Generate certiticates
-	certManager := autocert.Manager{
-		Prompt: autocert.AcceptTOS,
-		// TODO: Handle multiple domains
-		HostPolicy: autocert.HostWhitelist(domains),
-		Cache:      autocert.DirCache(CERTS_LOCATION),
-		Email:      email,
+	domains := strings.Split(domainsRaw, ",")
+	for i := 0; i < len(domains); i++ {
+		domains[i] = strings.Trim(domains[i], " ")
 	}
-	hello := &tls.ClientHelloInfo{
-		ServerName: domains,
-	}
-	certManager.GetCertificate(hello)
+	certErr := GenerateCerts(domains, email)
 	log.Printf("Cert location", CERTS_LOCATION)
-
+	log.Printf("Cert err: %s", certErr)
 	// Update secret
-
 	// Send response
+	response := &HealthResponse{
+		Healthy: true}
 	SendJson(w, response)
+}
+
+func GenerateCerts(domains []string, email string) error {
+	legoUser := getUser(email)
+	client, err := acme.NewClient("http://192.168.99.100:4000", &legoUser, acme.RSA2048)
+	if err != nil {
+		log.Printf("Error creating acme client: %s", err)
+		return err
+	}
+	httpPort := Getenv("httpPort", "80")
+	client.SetHTTPAddress(":" + httpPort)
+	client.SetTLSAddress(":" + httpPort)
+	// New users will need to register
+	reg, err := client.Register()
+	if err != nil {
+		log.Printf("Error registering user: %s", err)
+		return nil
+	}
+	legoUser.Registration = reg
+	log.Printf("User registered: %s", reg)
+	err = client.AgreeToTOS()
+	if err != nil {
+		log.Printf("Error agreeing to terms of service: %s", err)
+		return err
+	}
+	bundle := false
+	certificates, failures := client.ObtainCertificate(domains, bundle, nil, false)
+	log.Printf("%d failures founds", len(failures))
+	fmt.Printf("%#v\n", certificates)
+	if len(failures) > 0 {
+		log.Printf("Too many failures: %s", failures)
+		return err
+	}
+	return nil
+
+	// Each certificate comes back with the cert bytes, the bytes of the client's
+	// private key, and a certificate URL. SAVE THESE TO DISK.
+	fmt.Printf("%#v\n", certificates)
+	return nil
+}
+
+// You'll need a user or account type that implements acme.User
+type LegoUser struct {
+	Email        string
+	Registration *acme.RegistrationResource
+	key          crypto.PrivateKey
+}
+
+func (u LegoUser) GetEmail() string {
+	return u.Email
+}
+func (u LegoUser) GetRegistration() *acme.RegistrationResource {
+	return u.Registration
+}
+func (u LegoUser) GetPrivateKey() crypto.PrivateKey {
+	return u.key
+}
+
+func getUser(email string) LegoUser {
+	// Create a user. New accounts need an email and private key to start.
+	const rsaKeySize = 2048
+	privateKey, err := rsa.GenerateKey(rand.Reader, rsaKeySize)
+	if err != nil {
+		log.Fatal(err)
+	}
+	user := LegoUser{
+		Email: email,
+		key:   privateKey,
+	}
+	return user
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -115,8 +184,7 @@ func main() {
 	fs := http.FileServer(http.Dir("/.well-known"))
 	http.Handle("/.well-known", fs)
 	http.HandleFunc("/health", healthHandler)
-	httpPort := Getenv("httpPort", "8000")
+	httpPort := Getenv("httpPort", "80")
 	log.Printf("HTTP Server listening on port: %s", httpPort)
-	http.ListenAndServe(":"httpPort, nil)
-	http.ListenAndServe(":443"+, nil)
+	http.ListenAndServe(":"+httpPort, nil)
 }
