@@ -13,6 +13,11 @@ type HealthResponse struct {
 	Healthy bool
 }
 
+type SuccessResponse struct {
+	Success bool
+	Message string
+}
+
 type ErrorResponse struct {
 	Error         string
 	originalError error
@@ -20,8 +25,19 @@ type ErrorResponse struct {
 }
 
 var CERTS_LOCATION = "/var/certs/"
+var IN_PROGRESS = false
 
-func mainHandler(w http.ResponseWriter, r *http.Request) {
+func generateHandler(w http.ResponseWriter, r *http.Request) {
+	if IN_PROGRESS {
+		log.Printf("Refusing to start process because process is currently in progress")
+		errorResponse := &ErrorResponse{
+			Error: "Process is currently in progress"}
+		SendError(w, errorResponse)
+		return
+	}
+	IN_PROGRESS = true
+
+	log.Printf("Start main handler...")
 	// TODO: Add validation for these
 	domainsRaw := Getenv("DOMAINS", "")
 	// TODO: Add email validation
@@ -62,13 +78,22 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 	for i := 0; i < len(domains); i++ {
 		domains[i] = strings.Trim(domains[i], " ")
 	}
-	certErr := GenerateCerts(domains, email)
 	log.Printf("Cert location", CERTS_LOCATION)
-	log.Printf("Cert err: %s", certErr)
+	certErr := GenerateCerts(domains, email)
+	if certErr != nil {
+		log.Printf("Cert err: %s", certErr)
+		errorResponse := &ErrorResponse{
+			Error:         "Cannot get user registration. User has not be registered or registration cannot be properly retrieved.",
+			originalError: certErr}
+		SendError(w, errorResponse)
+		return
+	}
 	// Update secret
 	// Send response
-	response := &HealthResponse{
-		Healthy: true}
+	response := &SuccessResponse{
+		Success: true,
+		Message: "Your certs have been successfully created"}
+	IN_PROGRESS = false
 	SendJson(w, response)
 }
 
@@ -101,6 +126,10 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 
 func GenerateCerts(domains []string, email string) error {
 	legoUser, err := getUserWithRegistration(email)
+	if err != nil {
+		log.Printf("Error getting user with registration: %s", err)
+		return err
+	}
 	// https://github.com/xenolf/lego/blob/master/cli.go#L120
 	caServerHost := Getenv("CA_SERVER", "https://acme-v01.api.letsencrypt.org/directory")
 	log.Printf("Creating new user from CA server: %s", caServerHost)
@@ -114,12 +143,14 @@ func GenerateCerts(domains []string, email string) error {
 	client.SetHTTPAddress(":" + "5001")
 	client.SetTLSAddress(":" + "5002")
 	// New users will need to register
+	log.Printf("Agreeing to TOS")
 	err = client.AgreeToTOS()
 	if err != nil {
 		log.Printf("Error agreeing to terms of service: %s", err)
 		return err
 	}
 	bundle := false
+	log.Printf("Obtaining certificates...")
 	certificates, failures := client.ObtainCertificate(domains, bundle, nil, false)
 	log.Printf("%d failures founds", len(failures))
 	fmt.Printf("%#v\n", certificates)
@@ -136,12 +167,13 @@ func GenerateCerts(domains []string, email string) error {
 }
 
 func main() {
-	http.HandleFunc("/", mainHandler)
-	fs := http.FileServer(http.Dir("/.well-known"))
-	http.Handle("/.well-known", fs)
+	wellKnownDir := "/.well-known/"
+	fs := http.StripPrefix(wellKnownDir, http.FileServer(http.Dir(wellKnownDir)))
+	http.Handle(wellKnownDir, fs)
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/register", registrationHandler)
-	httpPort := Getenv("httpPort", "80")
+	http.HandleFunc("/generate", generateHandler)
+	httpPort := Getenv("HTTP_PORT", "80")
 	log.Printf("HTTP Server listening on port: %s", httpPort)
 	http.ListenAndServe(":"+httpPort, nil)
 }
