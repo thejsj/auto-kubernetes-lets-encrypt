@@ -51,8 +51,8 @@ func getUserWithRegistration(email string) (LegoUser, error) {
 	registrationJson := Getenv("LETS_ENCRYPT_USER_REGISTRATION", "")
 	log.Printf("Registration JSON: %s", registrationJson)
 	if registrationJson == "" {
-		log.Printf("Attempting to register user..")
-		return user, err
+		log.Printf("Error finding user registration")
+		return user, errors.New("Error getting user registration from secret. Register user first.")
 	}
 	registration := acme.RegistrationResource{}
 	err = json.Unmarshal([]byte(registrationJson), &registration)
