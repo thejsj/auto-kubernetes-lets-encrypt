@@ -1,7 +1,7 @@
 FROM golang:1.7.5-alpine
 
 ADD ./vendor /go/src/
-ADD ./main.go /app/
+ADD ./*.go /app/
 
 WORKDIR /app/
 RUN go build -o /app/main

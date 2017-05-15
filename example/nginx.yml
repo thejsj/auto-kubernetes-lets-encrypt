@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  selector:
+    app: nginx
+  # This needs to be a NodePort so that our ingress controller in GCP can access the service
+  # Not needed in ingress-controller in minikube
+  type: NodePort
+  ports:
+  - protocol: "TCP"
+    nodePort: 32101
+    port: 80
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: nginx-configs
+          mountPath: /etc/nginx/conf.d
+        # A health check is need for GCP and other ingress controllers to route
+        # traffic to a pod
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+      # Load the configuration files for nginx
+      volumes:
+        - name: nginx-configs
+          configMap:
+            name: nginx-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  default.conf: |
+    server {
+      listen 80;
+      listen [::]:80;
+      server_name  _;
+
+      location / {
+        add_header Content-Type text/plain;
+        return 200 "Auto Kubernetes Let's Encrypt Test";
+      }
+    }

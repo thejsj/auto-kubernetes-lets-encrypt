@@ -1,0 +1,25 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: "auto-kubernetes-lets-encrypt"
+  labels:
+    # Timestamp used in order to force reload of the secret
+    last_updated: "1494099934"
+spec:
+  tls:
+  - hosts:
+    - go-test.jorge.fail
+    secretName: auto-kubernetes-lets-encrypt-certs
+  rules:
+  - host: go-test.jorge.fail
+    http:
+      paths:
+      # The * is needed so that all traffic gets redirected to the nginx box
+      - path: /*
+        backend:
+          serviceName: nginx
+          servicePort: 80
+      - path: /.well-known/*
+        backend:
+          serviceName: auto-kubernetes-lets-encrypt
+          servicePort: 80

@@ -1,15 +1,9 @@
 package main
 
 import (
-	"crypto"
-	"crypto/rand"
-	"crypto/rsa"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/xenolf/lego/acme"
@@ -20,11 +14,11 @@ type HealthResponse struct {
 }
 
 type ErrorResponse struct {
-	Error string
-	Data  map[string]string
+	Error         string
+	originalError error
+	Data          map[string]string
 }
 
-var NAMESPACE_LOCATION = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 var CERTS_LOCATION = "/var/certs/"
 
 func mainHandler(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +44,7 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Get namespce
 	log.Printf("Looking for kuberentes namespace in: %s", NAMESPACE_LOCATION)
-	fileData, err := ioutil.ReadFile(NAMESPACE_LOCATION)
+	namespace, err := getNamespace()
 	if err != nil {
 		log.Printf("Kubernetes namespace not found in %s", NAMESPACE_LOCATION)
 		namespaceInputs := make(map[string]string)
@@ -61,7 +55,6 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 		SendError(w, errorResponse)
 		return
 	}
-	namespace := string(fileData)
 	log.Printf("Kubernetes namespace used: %s", namespace)
 	log.Printf("Starting cert manager. Placing certs in: %s", CERTS_LOCATION)
 	// Generate certiticates
@@ -79,26 +72,48 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 	SendJson(w, response)
 }
 
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	response := &HealthResponse{
+		Healthy: true}
+	SendJson(w, response)
+}
+
+func registrationHandler(w http.ResponseWriter, r *http.Request) {
+	email := Getenv("EMAIL", "")
+	legoUser, err := getUser(email)
+	if err != nil {
+		errorResponse := &ErrorResponse{
+			Error:         "Let's encrypt user not found",
+			originalError: err}
+		SendError(w, errorResponse)
+		return
+	}
+	_, err = registerUser(legoUser)
+	if err != nil {
+		errorResponse := &ErrorResponse{
+			Error:         "Could not register user",
+			originalError: err}
+		SendError(w, errorResponse)
+		return
+	}
+	return
+}
+
 func GenerateCerts(domains []string, email string) error {
-	legoUser := getUser(email)
+	legoUser, err := getUserWithRegistration(email)
 	// https://github.com/xenolf/lego/blob/master/cli.go#L120
 	caServerHost := Getenv("CA_SERVER", "https://acme-v01.api.letsencrypt.org/directory")
+	log.Printf("Creating new user from CA server: %s", caServerHost)
 	client, err := acme.NewClient(caServerHost, &legoUser, acme.RSA2048)
 	if err != nil {
 		log.Printf("Error creating acme client: %s", err)
 		return err
 	}
-	httpPort := Getenv("httpPort", "80")
-	client.SetHTTPAddress(":" + httpPort)
-	client.SetTLSAddress(":" + httpPort)
+	// httpPort := Getenv("httpPort", "")
+	// Let our server handle this, not lego
+	client.SetHTTPAddress(":" + "5001")
+	client.SetTLSAddress(":" + "5002")
 	// New users will need to register
-	reg, err := client.Register()
-	if err != nil {
-		log.Printf("Error registering user: %s", err)
-		return nil
-	}
-	legoUser.Registration = reg
-	log.Printf("User registered: %s", reg)
 	err = client.AgreeToTOS()
 	if err != nil {
 		log.Printf("Error agreeing to terms of service: %s", err)
@@ -120,72 +135,12 @@ func GenerateCerts(domains []string, email string) error {
 	return nil
 }
 
-// You'll need a user or account type that implements acme.User
-type LegoUser struct {
-	Email        string
-	Registration *acme.RegistrationResource
-	key          crypto.PrivateKey
-}
-
-func (u LegoUser) GetEmail() string {
-	return u.Email
-}
-func (u LegoUser) GetRegistration() *acme.RegistrationResource {
-	return u.Registration
-}
-func (u LegoUser) GetPrivateKey() crypto.PrivateKey {
-	return u.key
-}
-
-func getUser(email string) LegoUser {
-	// Create a user. New accounts need an email and private key to start.
-	const rsaKeySize = 2048
-	privateKey, err := rsa.GenerateKey(rand.Reader, rsaKeySize)
-	if err != nil {
-		log.Fatal(err)
-	}
-	user := LegoUser{
-		Email: email,
-		key:   privateKey,
-	}
-	return user
-}
-
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	response := &HealthResponse{
-		Healthy: true}
-	SendJson(w, response)
-}
-
-func SendError(w http.ResponseWriter, response interface{}) {
-	w.WriteHeader(http.StatusBadRequest)
-	SendJson(w, response)
-}
-
-func SendJson(w http.ResponseWriter, response interface{}) {
-	json, err := json.Marshal(response)
-	if err != nil {
-		log.Fatal("Error marshalling HTTP response: %s - %s", response, err)
-		panic(err)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(json)
-}
-
-func Getenv(key, fallback string) string {
-	value := os.Getenv(key)
-	if len(value) == 0 {
-		return fallback
-	}
-	return value
-}
-
 func main() {
 	http.HandleFunc("/", mainHandler)
 	fs := http.FileServer(http.Dir("/.well-known"))
 	http.Handle("/.well-known", fs)
 	http.HandleFunc("/health", healthHandler)
+	http.HandleFunc("/register", registrationHandler)
 	httpPort := Getenv("httpPort", "80")
 	log.Printf("HTTP Server listening on port: %s", httpPort)
 	http.ListenAndServe(":"+httpPort, nil)

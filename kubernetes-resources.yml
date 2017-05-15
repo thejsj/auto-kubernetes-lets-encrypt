@@ -19,9 +19,9 @@ spec:
         app: auto-kubernetes-lets-encrypt
     spec:
       containers:
-      - image: quay.io/hiphipjorge/auto-kubernetes-lets-encrypt:latest
+      - image: quay.io/hiphipjorge/auto-kubernetes-lets-encrypt:v0.0.5
         name: auto-kubernetes-lets-encrypt
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - name: main
           containerPort: 80
@@ -32,6 +32,19 @@ spec:
           value: jorge.silva@thejsj.com
         - name: SECRET_NAME
           value: auto-kubernetes-lets-encrypt-certs
+        - name: CA_SERVER
+          value: https://acme-staging.api.letsencrypt.org/directory
+        - name: LETS_ENCRYPT_USER_CERT
+          valueFrom:
+            secretKeyRef:
+              name: auto-kubernetes-lets-encrypt-user
+              key: private_key
+        - name: LETS_ENCRYPT_USER_REGISTRATION
+          valueFrom:
+            secretKeyRef:
+              name: auto-kubernetes-lets-encrypt-user
+              key: registration
+
       restartPolicy: Never
 ---
 apiVersion: v1
@@ -41,6 +54,8 @@ metadata:
 spec:
   selector:
     app: auto-kubernetes-lets-encrypt
+  type: NodePort
   ports:
   - protocol: "TCP"
+    nodePort: 31112
     port: 80
