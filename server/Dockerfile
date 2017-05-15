@@ -5,9 +5,9 @@ ADD ./*.go /app/
 
 WORKDIR /app/
 RUN go build -o /app/main
+RUN mkdir -p /var/www/.well-known/
+RUN echo "This is the index for .well-known" >> /var/www/.well-known/index.html
 
-EXPOSE 5001
-EXPOSE 5002
 EXPOSE 80
 
 CMD ["/app/main"]

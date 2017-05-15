@@ -4,7 +4,7 @@ metadata:
   name: "auto-kubernetes-lets-encrypt"
   labels:
     # Timestamp used in order to force reload of the secret
-    last_updated: "1494099934"
+    last_updated: "1494099935"
 spec:
   tls:
   - hosts:

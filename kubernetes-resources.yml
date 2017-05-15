@@ -19,10 +19,14 @@ spec:
         app: auto-kubernetes-lets-encrypt
     spec:
       containers:
-      - image: quay.io/hiphipjorge/auto-kubernetes-lets-encrypt:v0.0.11
+      - image: quay.io/hiphipjorge/auto-kubernetes-lets-encrypt:v0.0.19
         name: auto-kubernetes-lets-encrypt
         imagePullPolicy: IfNotPresent
         livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+        readinessProbe:
           httpGet:
             path: /health
             port: 80
@@ -50,7 +54,6 @@ spec:
             secretKeyRef:
               name: auto-kubernetes-lets-encrypt-user
               key: registration
-
       restartPolicy: Never
 ---
 apiVersion: v1

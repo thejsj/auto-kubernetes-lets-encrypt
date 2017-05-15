@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/xenolf/lego/acme"
+	"github.com/xenolf/lego/providers/http/webroot"
 )
 
 type HealthResponse struct {
@@ -25,6 +27,7 @@ type ErrorResponse struct {
 }
 
 var CERTS_LOCATION = "/var/certs/"
+var WEBROOT_LOCATION = "/var/www/"
 var IN_PROGRESS = false
 
 func generateHandler(w http.ResponseWriter, r *http.Request) {
@@ -98,6 +101,7 @@ func generateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Healthness Check")
 	response := &HealthResponse{
 		Healthy: true}
 	SendJson(w, response)
@@ -138,10 +142,18 @@ func GenerateCerts(domains []string, email string) error {
 		log.Printf("Error creating acme client: %s", err)
 		return err
 	}
-	// httpPort := Getenv("httpPort", "")
-	// Let our server handle this, not lego
-	client.SetHTTPAddress(":" + "5001")
-	client.SetTLSAddress(":" + "5002")
+
+	log.Printf("Setting webroot provider at %s", WEBROOT_LOCATION)
+	provider, err := webroot.NewHTTPProvider(WEBROOT_LOCATION)
+	if err != nil {
+		log.Printf("Error creating acme client provider: %s", err)
+		return err
+	}
+	log.Printf("Setting challenge provider to HTTP")
+	client.SetChallengeProvider(acme.HTTP01, provider)
+	log.Printf("Excluding all other challenges")
+	client.ExcludeChallenges([]acme.Challenge{acme.DNS01, acme.TLSSNI01})
+
 	// New users will need to register
 	log.Printf("Agreeing to TOS")
 	err = client.AgreeToTOS()
@@ -153,7 +165,6 @@ func GenerateCerts(domains []string, email string) error {
 	log.Printf("Obtaining certificates...")
 	certificates, failures := client.ObtainCertificate(domains, bundle, nil, false)
 	log.Printf("%d failures founds", len(failures))
-	fmt.Printf("%#v\n", certificates)
 	if len(failures) > 0 {
 		log.Printf("Too many failures: %s", failures)
 		return err
@@ -167,12 +178,14 @@ func GenerateCerts(domains []string, email string) error {
 }
 
 func main() {
-	wellKnownDir := "/.well-known/"
-	fs := http.StripPrefix(wellKnownDir, http.FileServer(http.Dir(wellKnownDir)))
-	http.Handle(wellKnownDir, fs)
+	wellKnownDir := filepath.Join(WEBROOT_LOCATION, ".well-known")
+	fs := http.StripPrefix("/.well-known/", http.FileServer(http.Dir(wellKnownDir)))
+	http.Handle("/.well-known/", fs)
+	log.Printf("Serving static files from : %s", wellKnownDir)
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/register", registrationHandler)
 	http.HandleFunc("/generate", generateHandler)
+	http.HandleFunc("/", healthHandler)
 	httpPort := Getenv("HTTP_PORT", "80")
 	log.Printf("HTTP Server listening on port: %s", httpPort)
 	http.ListenAndServe(":"+httpPort, nil)
