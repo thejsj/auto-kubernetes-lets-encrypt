@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -25,6 +26,7 @@ var serviceIPaddress string
 var serviceName string = "auto-kubernetes-lets-encrypt"
 var failed bool = false
 var ZONE_ID string = "2fcce5055b9bdafff28874ed2f5a4140"
+var DOMAIN string = "jorge.fail"
 var CLOUDFLARE_EMAIL string = "jorge.silva@thejsj.com"
 var CLOUDFLARE_API_KEY string = os.Getenv("CLOUDFLARE_API_KEY")
 
@@ -52,6 +54,9 @@ func TestBuildingImage(t *testing.T) {
 		t.Fatal("No ENV passed for `BUILD_GIT_COMMIT`. Cannot build image")
 	}
 	imageName = fmt.Sprintf("quay.io/hiphipjorge/auto-kubernetes-lets-encrypt:%s", commit)
+	if os.Getenv("SKIP_BUILD") != "" {
+		return
+	}
 	fullCommand := fmt.Sprintf("docker build -t %s ../server/", imageName)
 	t.Logf("Build with command: `%s`", fullCommand)
 	err, output := execCommand(fullCommand)
@@ -63,6 +68,10 @@ func TestBuildingImage(t *testing.T) {
 
 // #2 It should push the image
 func TestPushingImage(t *testing.T) {
+	if failed || os.Getenv("SKIP_BUILD") != "" {
+		t.SkipNow()
+	}
+
 	t.Log("Start push. Check for commit ENV")
 	fullCommand := fmt.Sprintf("docker push %s", imageName)
 	t.Logf("Push with command: `%s`", fullCommand)
@@ -142,7 +151,7 @@ func TestCreatingOfDNSEntry(t *testing.T) {
 	}
 	t.Log("Create DNS entry")
 	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records", ZONE_ID)
-	jsonStr := fmt.Sprintf("{\"type\":\"A\",\"name\":\"%s.jorge.fail\",\"content\": \"%s\"}", testId, serviceIPaddress)
+	jsonStr := fmt.Sprintf("{\"type\":\"A\",\"name\":\"%s.%s\",\"content\": \"%s\"}", testId, DOMAIN, serviceIPaddress)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(jsonStr)))
 	req.Header.Set("X-Auth-Email", CLOUDFLARE_EMAIL)
 	req.Header.Set("X-Auth-Key", CLOUDFLARE_API_KEY)
@@ -158,7 +167,40 @@ func TestCreatingOfDNSEntry(t *testing.T) {
 	defer resp.Body.Close()
 }
 
-// #7 It should wait for the IP address to resolve
+// #7 It should wait for the Service to be healthy
+func TestHealth(t *testing.T) {
+	if failed {
+		t.SkipNow()
+	}
+	t.Log("Start checking for health")
+	url := fmt.Sprintf("https://%s.%s", testId, DOMAIN)
+	log.Printf("Start! %s", url)
+	for {
+		time.Sleep(1000 * time.Millisecond)
+		log.Printf("request... %s", url)
+		resp, err := http.Get(url)
+		if err != nil || resp.StatusCode != 200 {
+			log.Printf("error response... ")
+			t.Log("Error making HTTP response: %s", err)
+			continue
+		}
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			failed = true
+			t.Fatalf("Error Reading body: %s", err)
+		}
+		log.Println(string(body))
+		matched, _ := regexp.MatchString("Healthy.*true", string(body))
+		if !matched {
+			log.Printf("no match...")
+			t.Log("HTTP response did not match")
+			continue
+		}
+		t.Log("HTTP response matched")
+		break
+	}
+}
 
 func tearDown() {
 	// DeleteNamespace()

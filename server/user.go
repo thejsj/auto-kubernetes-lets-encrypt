@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"log"
+	"os"
 
 	"github.com/xenolf/lego/acme"
 )
@@ -106,12 +107,14 @@ func saveRegistration(user LegoUser) error {
 		return errors.New("Environment variable `LETS_ENCRYPT_USER_SECRET_NAME` required")
 	}
 	updates := make(map[string][]byte)
-	updatesJson, err := json.Marshal(user.Registration)
+	log.Printf("Registratio: %s", *user.Registration)
+	updatesJson, err := json.Marshal(*user.Registration)
 	if err != nil {
 		return err
 	}
 	updates["registration"] = updatesJson
 	namespace, err := getNamespace()
+	log.Printf("Saving updates: %s, %s", updates, namespace)
 	if err != nil {
 		return err
 	}
@@ -120,5 +123,6 @@ func saveRegistration(user LegoUser) error {
 	if err != nil {
 		return err
 	}
+	os.Setenv("LETS_ENCRYPT_USER_REGISTRATION", string(updatesJson))
 	return nil
 }
