@@ -27,7 +27,7 @@ spec:
         app: auto-kubernetes-lets-encrypt
     spec:
       containers:
-      - image: *IMAGE_NAME*
+      - image: quay.io/hiphipjorge/auto-kubernetes-lets-encrypt:9e8df993e220af975faaa927bb5797e9bcee4345
         name: auto-kubernetes-lets-encrypt
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -43,7 +43,7 @@ spec:
           containerPort: 80
         env:
         - name: DOMAINS
-          value: "*SUBDOMAIN*.jorge.fail"
+          value: "1168333598.jorge.fail"
         - name: EMAIL
           value: jorge.silva@thejsj.com
         - name: SECRET_NAME
@@ -74,5 +74,5 @@ spec:
   type: LoadBalancer
   ports:
   - protocol: "TCP"
-    nodePort: *NODE_PORT*
+    nodePort: 31009
     port: 80

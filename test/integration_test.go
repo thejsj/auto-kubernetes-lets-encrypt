@@ -19,6 +19,7 @@ import (
 
 var testId string
 var imageName string
+var testNodePort string
 var serviceIPaddress string
 var serviceName string = "auto-kubernetes-lets-encrypt"
 var failed bool = false
@@ -37,7 +38,7 @@ type K8sIngressEntryResponse struct {
 }
 
 // #1 It should build an image
-func TestBuildingImate(t *testing.T) {
+func TestBuildingImage(t *testing.T) {
 	if failed {
 		t.SkipNow()
 	}
@@ -94,7 +95,6 @@ func TestCreatingJob(t *testing.T) {
 		t.Fatalf("Failed to execute file replacement", err.Error())
 	}
 	fullCommand := fmt.Sprintf("kubectl --namespace %s apply -f %s", testId, dstFilaname)
-	log.Print(fullCommand)
 	t.Logf("Update kubernetes with command: `%s`", fullCommand)
 	err, output := execCommand(fullCommand)
 	if err != nil {
@@ -109,12 +109,11 @@ func TestCreatingOfIp(t *testing.T) {
 		t.SkipNow()
 	}
 	t.Log("Start to watch for creation of IP address")
-	fullCommand := fmt.Sprintf("kubectl get svc %s -o json", serviceName)
+	fullCommand := fmt.Sprintf("kubectl --namespace=%s get svc %s -o json", testId, serviceName)
 	for {
 		time.Sleep(1000 * time.Millisecond)
-		log.Print("Fetch IP address")
+		t.Log("Fetching IP address...")
 		err, output := execCommand(fullCommand)
-		log.Println(output)
 		if err != nil {
 			continue
 		}
@@ -168,6 +167,7 @@ func DeleteFiles() error {
 func TestMain(m *testing.M) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	testId = strconv.Itoa(int(r.Int31()))
+	testNodePort = strconv.Itoa(time.Now().Second()%2767 + 30000)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -210,7 +210,7 @@ func execCommand(cmdString string) (error, string) {
 	if cmdErr != nil {
 		return cmdErr, err.String()
 	}
-	return nil, ""
+	return nil, out.String()
 }
 
 func copyFileContentsAndReplace(dir string, fileName string, testId string, imageName string) (error, string) {
@@ -223,6 +223,7 @@ func copyFileContentsAndReplace(dir string, fileName string, testId string, imag
 	}
 	newContents := strings.Replace(string(read), "*IMAGE_NAME*", imageName, -1)
 	newContents = strings.Replace(newContents, "*SUBDOMAIN*", testId, -1)
+	newContents = strings.Replace(newContents, "*NODE_PORT*", testNodePort, -1)
 	err = ioutil.WriteFile(dst, []byte(newContents), 0777)
 	if err != nil {
 		return err, dst
