@@ -10,10 +10,10 @@ import (
 )
 
 type SecretUpdateTemplate struct {
-	Kind       string // Secret
-	ApiVersion string // v1
-	Metadata   map[string]string
-	Data       map[string][]byte
+	Kind       string            `json:"kind"`
+	ApiVersion string            `json:"apiVersion"`
+	Metadata   map[string]string `json:"metadata"`
+	Data       map[string][]byte `json:"data"`
 }
 
 func NewSecretUpdate(name string, namespace string, data map[string][]byte) SecretUpdateTemplate {

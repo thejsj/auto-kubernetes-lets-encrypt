@@ -173,7 +173,7 @@ func TestHealth(t *testing.T) {
 		t.SkipNow()
 	}
 	t.Log("Start checking for health")
-	url := fmt.Sprintf("https://%s.%s", testId, DOMAIN)
+	url := fmt.Sprintf("http://%s.%s", testId, DOMAIN)
 	log.Printf("Start! %s", url)
 	for {
 		time.Sleep(1000 * time.Millisecond)
