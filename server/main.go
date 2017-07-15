@@ -125,6 +125,11 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 		SendError(w, errorResponse)
 		return
 	}
+	message := fmt.Sprintf("User successfully created: %s", &legoUser.Registration)
+	response := &SuccessResponse{
+		Success: true,
+		Message: message}
+	SendJson(w, response)
 	return
 }
 

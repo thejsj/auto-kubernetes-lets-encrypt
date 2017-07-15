@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -23,6 +24,9 @@ var testNodePort string
 var serviceIPaddress string
 var serviceName string = "auto-kubernetes-lets-encrypt"
 var failed bool = false
+var ZONE_ID string = "2fcce5055b9bdafff28874ed2f5a4140"
+var CLOUDFLARE_EMAIL string = "jorge.silva@thejsj.com"
+var CLOUDFLARE_API_KEY string = os.Getenv("CLOUDFLARE_API_KEY")
 
 type K8sResponse struct {
 	Status K8sStatusResponse `json:"status"`
@@ -58,15 +62,15 @@ func TestBuildingImage(t *testing.T) {
 }
 
 // #2 It should push the image
-// func TestPushingImage(t *testing.T) {
-// t.Log("Start push. Check for commit ENV")
-// fullCommand := fmt.Sprintf("docker push %s", imageName)
-// t.Logf("Push with command: `%s`", fullCommand)
-// err, output := execCommand(fullCommand)
-// if err != nil {
-// t.Fatalf("Error push image: %s", output)
-// }
-// }
+func TestPushingImage(t *testing.T) {
+	t.Log("Start push. Check for commit ENV")
+	fullCommand := fmt.Sprintf("docker push %s", imageName)
+	t.Logf("Push with command: `%s`", fullCommand)
+	err, output := execCommand(fullCommand)
+	if err != nil {
+		t.Fatalf("Error push image: %s", output)
+	}
+}
 
 // #3 It should create a new job
 func TestCreatingNamespace(t *testing.T) {
@@ -131,8 +135,33 @@ func TestCreatingOfIp(t *testing.T) {
 	}
 }
 
+// #6 It should create/update DNS entry in cloudflare with IP address
+func TestCreatingOfDNSEntry(t *testing.T) {
+	if failed {
+		t.SkipNow()
+	}
+	t.Log("Create DNS entry")
+	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records", ZONE_ID)
+	jsonStr := fmt.Sprintf("{\"type\":\"A\",\"name\":\"%s.jorge.fail\",\"content\": \"%s\"}", testId, serviceIPaddress)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(jsonStr)))
+	req.Header.Set("X-Auth-Email", CLOUDFLARE_EMAIL)
+	req.Header.Set("X-Auth-Key", CLOUDFLARE_API_KEY)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		failed = true
+		t.Fatalf("Error creating DNS entry: %s, %s", resp.StatusCode, err)
+	}
+	// TODO: Delete entry
+	defer resp.Body.Close()
+}
+
+// #7 It should wait for the IP address to resolve
+
 func tearDown() {
-	DeleteNamespace()
+	// DeleteNamespace()
 	DeleteFiles()
 }
 
@@ -179,7 +208,6 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	// It should create/update DNS entry in cloudflare with IP address and wait for it to resolve
 	// It should wait for the job to finish
 	// It should check for the secret to exist
 	// It should check for ingress controller to be updated
