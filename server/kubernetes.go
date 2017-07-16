@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 )
 
 type SecretUpdateTemplate struct {
@@ -62,7 +64,11 @@ func updateSecret(secretName string, update SecretUpdateTemplate) error {
 	if err != nil {
 		return err
 	}
-	url := fmt.Sprintf("https://kubernetes/api/v1/namespaces/%s/secrets/%s", namespace, secretName)
+	kubernestsHost := os.Getenv("KUBERNETES_SERVICE_HOST")
+	if kubernestsHost == "" {
+		return errors.New("No `KUBERNETES_SERVICE_HOST` defined")
+	}
+	url := fmt.Sprintf("https://%s/api/v1/namespaces/%s/secrets/%s", kubernestsHost, namespace, secretName)
 	jsonStr, err := json.Marshal(update)
 	if err != nil {
 		return err
