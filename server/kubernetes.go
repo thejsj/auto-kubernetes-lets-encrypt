@@ -80,7 +80,15 @@ func updateSecret(secretName string, update SecretUpdateTemplate) error {
 	req.Header.Set("Authorization", authorizationHeader)
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	log.Printf("Response from API: %s", resp)
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	log.Printf("Response from API: %s, %s", resp.StatusCode, string(body))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("User registration did not return 200 (Status Code: %s): %s", resp.StatusCode, string(body))
+	}
 	return nil
 
 }
