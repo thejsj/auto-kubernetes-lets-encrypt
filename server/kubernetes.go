@@ -75,18 +75,27 @@ func updateSecret(secretName string, update SecretUpdateTemplate) error {
 	}
 	req, _ := http.NewRequest("PATCH", url, bytes.NewBuffer(jsonStr))
 	log.Printf("Request to API: %s", req)
+	log.Printf("Test 0.0")
 	authorizationHeader := fmt.Sprintf("Bearer %s", token)
+	log.Printf("Test 0")
 	req.Header.Set("Accept", "application/json, */*")
 	req.Header.Set("Content-Type", "application/strategic-merge-patch+json")
+	log.Printf("Test 0.1")
 	req.Header.Set("Authorization", authorizationHeader)
+	log.Printf("Test 1")
 	client := &http.Client{}
+	log.Printf("Test 2")
 	resp, err := client.Do(req)
-	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-	log.Printf("Response from API: %s, %s", resp.StatusCode, string(body))
+	log.Printf("Test 2")
 	if err != nil {
 		return err
 	}
+	log.Printf("Test 3")
+	defer resp.Body.Close()
+	log.Printf("Test 3.1")
+	body, _ := ioutil.ReadAll(resp.Body)
+	log.Printf("Test 4")
+	log.Printf("Response from API: %s, %s", resp.StatusCode, string(body))
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("User registration did not return 200 (Status Code: %s): %s", resp.StatusCode, string(body))
 	}
