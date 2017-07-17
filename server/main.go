@@ -174,7 +174,6 @@ func GenerateCerts(domains []string, email string) error {
 		log.Printf("Too many failures: %s", failures)
 		return err
 	}
-	return nil
 
 	// Each certificate comes back with the cert bytes, the bytes of the client's
 	// private key, and a certificate URL. SAVE THESE TO DISK.

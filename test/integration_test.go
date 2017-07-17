@@ -202,6 +202,54 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+// #7.2 It should register the user
+func TestUserCreation(t *testing.T) {
+	if failed {
+		t.SkipNow()
+	}
+	t.Log("Register user")
+	url := fmt.Sprintf("http://%s.%s/register", testId, DOMAIN)
+	resp, err := http.Get(url)
+	if err != nil || resp.StatusCode != 200 {
+		failed = true
+		t.Fatalf("Error registering user: %s", err)
+	}
+	defer resp.Body.Close()
+}
+
+// #7.3 It should generate the certs
+func TestCertCreation(t *testing.T) {
+	if failed {
+		t.SkipNow()
+	}
+	t.Log("Register user")
+	url := fmt.Sprintf("http://%s.%s/generate", testId, DOMAIN)
+	resp, err := http.Get(url)
+	if err != nil || resp.StatusCode != 200 {
+		failed = true
+		t.Fatalf("Error registering user: %s", err)
+	}
+	defer resp.Body.Close()
+}
+
+// #8 It should have successfully completed the job
+func TestJobCompletion(t *testing.T) {
+	// TODO: Check cluster for registration property in secret
+	t.SkipNow()
+}
+
+// #9 It should have successfully added the registration field
+func TestRegistrationCreation(t *testing.T) {
+	// TODO: Check cluster for registration property in secret
+	t.SkipNow()
+}
+
+// #10 It should have successfully added the certs
+func TestCertCreation(t *testing.T) {
+	// TODO: Check cluster for registration property in secret
+	t.SkipNow()
+}
+
 func tearDown() {
 	// DeleteNamespace()
 	DeleteFiles()

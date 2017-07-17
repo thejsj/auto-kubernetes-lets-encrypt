@@ -75,23 +75,15 @@ func updateSecret(secretName string, update SecretUpdateTemplate) error {
 		return err
 	}
 	req, _ := http.NewRequest("PATCH", url, bytes.NewBuffer(jsonStr))
-	log.Printf("Request to API: %s", req)
-	log.Printf("Test 0.0")
 	authorizationHeader := fmt.Sprintf("Bearer %s", token)
-	log.Printf("Test 0")
 	req.Header.Set("Accept", "application/json, */*")
 	req.Header.Set("Content-Type", "application/strategic-merge-patch+json")
-	log.Printf("Test 0.1")
 	req.Header.Set("Authorization", authorizationHeader)
-	log.Printf("Test 1")
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	log.Printf("Test 2.0")
 	client := &http.Client{Transport: tr}
-	log.Printf("Test 2.1")
 	resp, err := client.Do(req)
-	log.Printf("Test 2.2")
 	if err != nil {
 		return err
 	}
