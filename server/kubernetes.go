@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -83,10 +84,14 @@ func updateSecret(secretName string, update SecretUpdateTemplate) error {
 	log.Printf("Test 0.1")
 	req.Header.Set("Authorization", authorizationHeader)
 	log.Printf("Test 1")
-	client := &http.Client{}
-	log.Printf("Test 2")
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	log.Printf("Test 2.0")
+	client := &http.Client{Transport: tr}
+	log.Printf("Test 2.1")
 	resp, err := client.Do(req)
-	log.Printf("Test 2")
+	log.Printf("Test 2.2")
 	if err != nil {
 		return err
 	}
