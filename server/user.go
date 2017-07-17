@@ -3,6 +3,7 @@ package main
 import (
 	"crypto"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -106,13 +107,14 @@ func saveRegistration(user LegoUser) error {
 	if secretName == "" {
 		return errors.New("Environment variable `LETS_ENCRYPT_USER_SECRET_NAME` required")
 	}
-	updates := make(map[string][]byte)
+	updates := make(map[string]string)
 	log.Printf("Registratio: %s", *user.Registration)
 	updatesJson, err := json.Marshal(*user.Registration)
 	if err != nil {
 		return err
 	}
-	updates["registration"] = updatesJson
+	encodedJson := base64.StdEncoding.EncodeToString(updatesJson)
+	updates["registration"] = encodedJson
 	namespace, err := getNamespace()
 	log.Printf("Saving updates: %s, %s", updates, namespace)
 	if err != nil {

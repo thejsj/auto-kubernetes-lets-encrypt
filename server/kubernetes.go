@@ -15,10 +15,10 @@ type SecretUpdateTemplate struct {
 	Kind       string            `json:"kind"`
 	ApiVersion string            `json:"apiVersion"`
 	Metadata   map[string]string `json:"metadata"`
-	Data       map[string][]byte `json:"data"`
+	Data       map[string]string `json:"data"`
 }
 
-func NewSecretUpdate(name string, namespace string, data map[string][]byte) SecretUpdateTemplate {
+func NewSecretUpdate(name string, namespace string, data map[string]string) SecretUpdateTemplate {
 	metadata := make(map[string]string)
 	metadata["name"] = name
 	metadata["namespace"] = namespace
@@ -77,6 +77,7 @@ func updateSecret(secretName string, update SecretUpdateTemplate) error {
 	log.Printf("Request to API: %s", req)
 	authorizationHeader := fmt.Sprintf("Bearer %s", token)
 	req.Header.Set("Accept", "application/json, */*")
+	req.Header.Set("Content-Type", "application/strategic-merge-patch+json")
 	req.Header.Set("Authorization", authorizationHeader)
 	client := &http.Client{}
 	resp, err := client.Do(req)
