@@ -180,7 +180,6 @@ func TestCreatingOfDNSEntry(t *testing.T) {
 		failed = true
 		t.Fatalf("Error creating DNS entry: %s, %s", resp.StatusCode, err)
 	}
-	// TODO: Delete entry
 	defer resp.Body.Close()
 }
 
@@ -194,12 +193,10 @@ func TestDNSResolution(t *testing.T) {
 		time.Sleep(1000 * time.Millisecond)
 		ips, err := net.LookupIP(url)
 		if err != nil {
-			log.Printf("Error looking up IP: %s", err)
 			t.Log("Error looking up IP for DNS entry: %s", err)
 			continue
 		}
 		if ips[0].String() != serviceIPaddress {
-			log.Printf("IP addresses do not match: %s, %s", serviceIPaddress, ips)
 			t.Log("Error looking up IP for DNS entry: %s", err)
 			continue
 		}
@@ -244,15 +241,12 @@ func TestJobCompletion(t *testing.T) {
 	}
 	fullCommand := fmt.Sprintf("kubectl --namespace %s get job %s -o json", testId, JOB_NAME)
 	for {
-		log.Printf("Get job result: %s", fullCommand)
 		err, output := execCommand(fullCommand)
 		if err != nil {
 			continue
 		}
 		res := K8sJobResponse{}
 		err = json.Unmarshal([]byte(output), &res)
-		log.Printf("Queried job result: %s, %s", output, res)
-		// Check if it's successful
 		if err != nil {
 			continue
 		}
@@ -270,7 +264,6 @@ func TestRegistrationCreation(t *testing.T) {
 		t.SkipNow()
 	}
 	fullCommand := fmt.Sprintf("kubectl --namespace %s get secret %s -o json", testId, REGISTRATION_SECRET_NAME)
-	log.Printf("Get data from secret: %s", fullCommand)
 	err, output := execCommand(fullCommand)
 	if err != nil {
 		failed = true
@@ -290,7 +283,6 @@ func TestRegistrationCreation(t *testing.T) {
 		t.Fatalf("Registration not found: %s", res.Data, output)
 		return
 	}
-	log.Printf("Registration: %s", registration)
 }
 
 // #10 It should have successfully added the certs
@@ -299,7 +291,6 @@ func TestCertsFound(t *testing.T) {
 		t.SkipNow()
 	}
 	fullCommand := fmt.Sprintf("kubectl --namespace %s get secret %s -o json", testId, CERT_SECRET_NAME)
-	log.Printf("Get job result: %s", fullCommand)
 	err, output := execCommand(fullCommand)
 	if err != nil {
 		failed = true
@@ -314,12 +305,12 @@ func TestCertsFound(t *testing.T) {
 		t.Fatalf("Error marshalling JSON: %s / %s", err, res.Data[testId+"."+DOMAIN+".crt"])
 		return
 	}
-	log.Printf("Cert: %s", crt)
 }
 
 func tearDown() {
 	DeleteNamespace()
 	DeleteFiles()
+	DeleteDNSEntry()
 }
 
 func DeleteNamespace() error {
@@ -347,6 +338,25 @@ func DeleteFiles() error {
 			os.Remove(p)
 		}
 	}
+	return nil
+}
+
+func DeleteDNSEntry() error {
+	log.Print("Delete DNS entry")
+	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s", ZONE_ID)
+	req, err := http.NewRequest("DELETE", url, nil)
+	req.Header.Set("X-Auth-Email", CLOUDFLARE_EMAIL)
+	req.Header.Set("X-Auth-Key", CLOUDFLARE_API_KEY)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error deleting DNS entry: %s, %s", resp.StatusCode, err)
+		return err
+	}
+	defer resp.Body.Close()
+	log.Printf("Status code: %s", resp.StatusCode)
 	return nil
 }
 
