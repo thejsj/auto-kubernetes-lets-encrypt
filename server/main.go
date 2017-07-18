@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/xenolf/lego/acme"
 	"github.com/xenolf/lego/providers/http/webroot"
@@ -241,6 +242,7 @@ func startServer() {
 	httpPort := Getenv("HTTP_PORT", "80")
 	log.Printf("HTTP Server listening on port: %s", httpPort)
 	http.ListenAndServe(":"+httpPort, nil)
+	return
 }
 
 func main() {
@@ -254,6 +256,7 @@ func main() {
 	}
 
 	for {
+		time.Sleep(1000 * time.Millisecond)
 		var err error
 		currentHealthId, err = newUUID()
 		if err != nil {
@@ -261,8 +264,12 @@ func main() {
 			continue
 		}
 		resp, err := http.Get("http://" + domain)
-		if err != nil || resp.StatusCode != 200 {
-			log.Printf("Error making GET request to : %s, Status Code: %s", err, resp.StatusCode)
+		if err != nil {
+			log.Printf("Error making GET request to : %s", err)
+			continue
+		}
+		if resp.StatusCode != 200 {
+			log.Printf("Error making GET request to : %s, Status Code: %s", err, resp)
 			continue
 		}
 		body, ioErr := ioutil.ReadAll(resp.Body)
