@@ -145,7 +145,7 @@ func GenerateCerts(domains []string, email string) error {
 		log.Printf("Error getting user with registration: %s", err)
 		return err
 	}
-	secretName := Getenv("LETS_ENCRYPT_USER_SECRET_NAME", "")
+	secretName := Getenv("SECRET_NAME", "")
 	if secretName == "" {
 		return errors.New("Environment variable `LETS_ENCRYPT_USER_SECRET_NAME` required")
 	}

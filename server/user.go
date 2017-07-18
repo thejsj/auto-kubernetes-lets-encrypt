@@ -103,7 +103,7 @@ func saveRegistration(user LegoUser) error {
 		log.Printf("User has no registration", user)
 		return errors.New("User has no registration")
 	}
-	secretName := Getenv("SECRET_NAME", "")
+	secretName := Getenv("LETS_ENCRYPT_USER_SECRET_NAME", "")
 	if secretName == "" {
 		return errors.New("Environment variable `SECRET_NAME` required for saving certs")
 	}

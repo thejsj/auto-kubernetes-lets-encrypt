@@ -177,6 +177,12 @@ func TestHealth(t *testing.T) {
 	log.Printf("Start! %s", url)
 	for {
 		time.Sleep(1000 * time.Millisecond)
+		// NOTE: Mac only
+		err := exec.Command("killall", "-HUP", "mDNSResponder").Run()
+		if err != nil {
+			failed = true
+			t.Fatalf("Error clearing DNS cache: %s", err)
+		}
 		log.Printf("request... %s", url)
 		resp, err := http.Get(url)
 		if err != nil || resp.StatusCode != 200 {
