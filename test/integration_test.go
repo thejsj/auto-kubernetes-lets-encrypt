@@ -173,16 +173,18 @@ func TestDNSResolution(t *testing.T) {
 		t.SkipNow()
 	}
 	t.Log("Start checking for DNS resolution")
-	url := fmt.Sprintf("http://%s.%s", testId, DOMAIN)
+	host := fmt.Sprintf("%s.%s", testId, DOMAIN)
 	for {
-		ips, err := net.LookupIP(url)
+		time.Sleep(1000 * time.Millisecond)
+		ips, err := net.LookupIP(host)
 		if err != nil {
+			log.Printf("ERR doing stuff: %s, %s, %s, %s", ips, serviceIPaddress, err, url)
 			t.Log("Error looking up IP for DNS entry: %s", err)
 			continue
 		}
-		if ips[0] != serviceIPaddress {
+		if ips[0].String() != serviceIPaddress {
+			log.Printf("IP address is different: %s, %s, %s", ips, serviceIPaddress, ips[0].String())
 			t.Log("Error looking up IP for DNS entry: %s", err)
-			log.Printf("IP address is different: %s, %s", ips, serviceIPaddress)
 			continue
 		}
 		log.Printf("Ips: %s", ips)
