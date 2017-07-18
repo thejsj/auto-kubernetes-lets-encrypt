@@ -27,6 +27,7 @@ var serviceIPaddress string
 var serviceName string = "auto-kubernetes-lets-encrypt"
 var failed bool = false
 var ZONE_ID string = "2fcce5055b9bdafff28874ed2f5a4140"
+var dnsRecordId string
 var DOMAIN string = "jorge.fail"
 var CLOUDFLARE_EMAIL string = "jorge.silva@thejsj.com"
 var CLOUDFLARE_API_KEY string = os.Getenv("CLOUDFLARE_API_KEY")
@@ -55,6 +56,12 @@ type K8sLoadBalancerResponse struct {
 }
 type K8sIngressEntryResponse struct {
 	Ip string `json:"ip"`
+}
+type CloudflareZoneCreationResponse struct {
+	Result CloudflareZoneCreationResult `json:"result"`
+}
+type CloudflareZoneCreationResult struct {
+	Id string `json:"id"`
 }
 
 // #1 It should build an image
@@ -181,6 +188,22 @@ func TestCreatingOfDNSEntry(t *testing.T) {
 		t.Fatalf("Error creating DNS entry: %s, %s", resp.StatusCode, err)
 	}
 	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		failed = true
+		t.Fatalf("Error creating DNS entry: %s, %s", resp.StatusCode, err)
+	}
+	res := CloudflareZoneCreationResponse{}
+	err = json.Unmarshal([]byte(body), &res)
+	if err != nil {
+		failed = true
+		t.Fatalf("Error Marshalling JSON: %s", err)
+	}
+	if res.Result.Id == "" {
+		failed = true
+		t.Fatalf("Error getting ID for result: %s", res)
+	}
+	dnsRecordId = res.Result.Id
 }
 
 func TestDNSResolution(t *testing.T) {
@@ -211,6 +234,7 @@ func TestHealth(t *testing.T) {
 	}
 	t.Log("Start checking for health")
 	url := fmt.Sprintf("http://%s.%s", testId, DOMAIN)
+	// Be sure to manually clear your DNS cache when running this test
 	for {
 		time.Sleep(1000 * time.Millisecond)
 		resp, err := http.Get(url)
@@ -272,7 +296,6 @@ func TestRegistrationCreation(t *testing.T) {
 	}
 	res := K8sSecretResponse{}
 	err = json.Unmarshal([]byte(output), &res)
-	registration := res.Data["registration"]
 	if err != nil {
 		failed = true
 		t.Fatalf("Error marshalling JSON: %s", err)
@@ -342,8 +365,8 @@ func DeleteFiles() error {
 }
 
 func DeleteDNSEntry() error {
-	log.Print("Delete DNS entry")
-	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s", ZONE_ID)
+	log.Printf("Delete DNS entry: %s, %s", ZONE_ID, dnsRecordId)
+	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records/%s", ZONE_ID, dnsRecordId)
 	req, err := http.NewRequest("DELETE", url, nil)
 	req.Header.Set("X-Auth-Email", CLOUDFLARE_EMAIL)
 	req.Header.Set("X-Auth-Key", CLOUDFLARE_API_KEY)
