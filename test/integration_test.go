@@ -30,8 +30,12 @@ var ZONE_ID string = "2fcce5055b9bdafff28874ed2f5a4140"
 var DOMAIN string = "jorge.fail"
 var CLOUDFLARE_EMAIL string = "jorge.silva@thejsj.com"
 var CLOUDFLARE_API_KEY string = os.Getenv("CLOUDFLARE_API_KEY")
+var JOB_NAME string = "auto-kubernetes-lets-encrypt"
+var CERT_SECRET_NAME string = "auto-kubernetes-lets-encrypt-certs"
+var REGISTRATION_SECRET_NAME string = "auto-kubernetes-lets-encrypt-user"
 
 type K8sResponse struct {
+	Data   map[string]string `json:"data"`
 	Status K8sStatusResponse `json:"status"`
 }
 type K8sStatusResponse struct {
@@ -133,6 +137,9 @@ func TestCreatingOfIp(t *testing.T) {
 		}
 		res := K8sResponse{}
 		err = json.Unmarshal([]byte(output), &res)
+		if err != nil {
+			continue
+		}
 		if len(res.Status.LoadBalancer.Ingress) == 0 {
 			continue
 		}
@@ -173,21 +180,18 @@ func TestDNSResolution(t *testing.T) {
 		t.SkipNow()
 	}
 	t.Log("Start checking for DNS resolution")
-	host := fmt.Sprintf("%s.%s", testId, DOMAIN)
+	url := fmt.Sprintf("http://%s.%s", testId, DOMAIN)
 	for {
 		time.Sleep(1000 * time.Millisecond)
-		ips, err := net.LookupIP(host)
+		ips, err := net.LookupIP(url)
 		if err != nil {
-			log.Printf("ERR doing stuff: %s, %s, %s, %s", ips, serviceIPaddress, err, url)
 			t.Log("Error looking up IP for DNS entry: %s", err)
 			continue
 		}
 		if ips[0].String() != serviceIPaddress {
-			log.Printf("IP address is different: %s, %s, %s", ips, serviceIPaddress, ips[0].String())
 			t.Log("Error looking up IP for DNS entry: %s", err)
 			continue
 		}
-		log.Printf("Ips: %s", ips)
 		break
 	}
 }
@@ -199,13 +203,10 @@ func TestHealth(t *testing.T) {
 	}
 	t.Log("Start checking for health")
 	url := fmt.Sprintf("http://%s.%s", testId, DOMAIN)
-	log.Printf("Start! %s", url)
 	for {
 		time.Sleep(1000 * time.Millisecond)
-		log.Printf("request... %s", url)
 		resp, err := http.Get(url)
 		if err != nil || resp.StatusCode != 200 {
-			log.Printf("error response... ")
 			t.Log("Error making HTTP response: %s", err)
 			continue
 		}
@@ -215,10 +216,8 @@ func TestHealth(t *testing.T) {
 			failed = true
 			t.Fatalf("Error Reading body: %s", err)
 		}
-		log.Println(string(body))
 		matched, _ := regexp.MatchString("Healthy.*true", string(body))
 		if !matched {
-			log.Printf("no match...")
 			t.Log("HTTP response did not match")
 			continue
 		}
@@ -247,12 +246,12 @@ func TestCertCreation(t *testing.T) {
 	if failed {
 		t.SkipNow()
 	}
-	t.Log("Register user")
 	url := fmt.Sprintf("http://%s.%s/generate", testId, DOMAIN)
 	resp, err := http.Get(url)
 	if err != nil || resp.StatusCode != 200 {
 		failed = true
 		t.Fatalf("Error registering user: %s", err)
+		return
 	}
 	defer resp.Body.Close()
 }
@@ -265,14 +264,46 @@ func TestJobCompletion(t *testing.T) {
 
 // #9 It should have successfully added the registration field
 func TestRegistrationCreation(t *testing.T) {
-	// TODO: Check cluster for registration property in secret
-	t.SkipNow()
+	if failed {
+		t.SkipNow()
+	}
+	fullCommand := fmt.Sprintf("kubectl --namespace %s get secret %s -o json", testId, REGISTRATION_SECRET_NAME)
+	log.Printf("Get job result: %s", fullCommand)
+	err, output := execCommand(fullCommand)
+	if err != nil {
+		failed = true
+		t.Fatalf("Error getting secret: %s", err)
+		return
+	}
+	res := K8sResponse{}
+	err = json.Unmarshal([]byte(output), &res)
+	if err != nil || res.Data["registration"] == "" {
+		failed = true
+		t.Fatalf("Error marshalling JSON: %s / %s", err, res.Data["registration"])
+		return
+	}
 }
 
 // #10 It should have successfully added the certs
 func TestCertsFound(t *testing.T) {
-	// TODO: Check cluster for registration property in secret
-	t.SkipNow()
+	if failed {
+		t.SkipNow()
+	}
+	fullCommand := fmt.Sprintf("kubectl --namespace %s get secret %s -o json", testId, CERT_SECRET_NAME)
+	log.Printf("Get job result: %s", fullCommand)
+	err, output := execCommand(fullCommand)
+	if err != nil {
+		failed = true
+		t.Fatalf("Error getting secret: %s", err)
+		return
+	}
+	res := K8sResponse{}
+	err = json.Unmarshal([]byte(output), &res)
+	if err != nil || res.Data[testId+"."+DOMAIN+".crt"] == "" {
+		failed = true
+		t.Fatalf("Error marshalling JSON: %s / %s", err, res.Data[testId+"."+DOMAIN+".crt"])
+		return
+	}
 }
 
 func tearDown() {
