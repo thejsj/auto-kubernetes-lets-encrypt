@@ -152,7 +152,7 @@ func GenerateCerts(domains []string, email string) error {
 	log.Printf("%d failures founds", len(failures))
 	if len(failures) > 0 {
 		log.Printf("Too many failures: %s", failures)
-		return err
+		return fmt.Errorf("More than 0 failures when generating certs: %s", failures)
 	}
 
 	// Each certificate comes back with the cert bytes, the bytes of the client's
