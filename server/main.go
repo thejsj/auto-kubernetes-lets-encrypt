@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,7 @@ import (
 
 type HealthResponse struct {
 	Healthy bool
+	Id      string
 }
 
 type SuccessResponse struct {
@@ -35,14 +37,11 @@ type ErrorResponse struct {
 var CERTS_LOCATION = "/var/certs/"
 var WEBROOT_LOCATION = "/var/www/"
 var IN_PROGRESS = false
+var currentHealthId string = ""
 
-func generateHandler(w http.ResponseWriter, r *http.Request) {
+func generate() error {
 	if IN_PROGRESS {
-		log.Printf("Refusing to start process because process is currently in progress")
-		errorResponse := &ErrorResponse{
-			Error: "Process is currently in progress"}
-		SendError(w, errorResponse)
-		return
+		return fmt.Errorf("Already in Progress")
 	}
 	IN_PROGRESS = true
 
@@ -61,24 +60,14 @@ func generateHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("ENV inputs: %s", envInputs)
 	if domainsRaw == "" || email == "" || secretName == "" {
 		log.Printf("Environment variables not setup correctly: %s", envInputs)
-		errorResponse := &ErrorResponse{
-			Error: "The following ENV variables are required: `DOMAINS`, `EMAIL`, and `SECRET_NAME`",
-			Data:  envInputs}
-		SendError(w, errorResponse)
-		return
+		return fmt.Errorf("The following ENV variables are required: `DOMAINS`, `EMAIL`, and `SECRET_NAME`: %s", envInputs)
 	}
 	// Get namespce
 	log.Printf("Looking for kuberentes namespace in: %s", NAMESPACE_LOCATION)
 	namespace, err := getNamespace()
 	if err != nil {
 		log.Printf("Kubernetes namespace not found in %s", NAMESPACE_LOCATION)
-		namespaceInputs := make(map[string]string)
-		namespaceInputs["NAMESPACE_LOCATION"] = NAMESPACE_LOCATION
-		errorResponse := &ErrorResponse{
-			Error: "Kubernetes namespace could not be found",
-			Data:  namespaceInputs}
-		SendError(w, errorResponse)
-		return
+		return fmt.Errorf("Kubernetes namespace not found in %s", NAMESPACE_LOCATION)
 	}
 	log.Printf("Kubernetes namespace used: %s", namespace)
 	log.Printf("Starting cert manager. Placing certs in: %s", CERTS_LOCATION)
@@ -91,52 +80,31 @@ func generateHandler(w http.ResponseWriter, r *http.Request) {
 	certErr := GenerateCerts(domains, email)
 	if certErr != nil {
 		log.Printf("Cert err: %s", certErr)
-		errorResponse := &ErrorResponse{
-			Error:         "Cannot get user registration. User has not be registered or registration cannot be properly retrieved.",
-			originalError: certErr}
-		SendError(w, errorResponse)
-		return
+		return fmt.Errorf("Cannot get user registration. User has not be registered or registration cannot be properly retrieved.")
 	}
-	// Update secret
-	// Send response
-	response := &SuccessResponse{
-		Success: true,
-		Message: "Your certs have been successfully created"}
 	IN_PROGRESS = false
-	SendJson(w, response)
+	return nil
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Healthness Check")
+	log.Printf("Health Check")
 	response := &HealthResponse{
+		Id:      currentHealthId,
 		Healthy: true}
 	SendJson(w, response)
 }
 
-func registrationHandler(w http.ResponseWriter, r *http.Request) {
+func register() error {
 	email := Getenv("EMAIL", "")
 	legoUser, err := getUser(email)
 	if err != nil {
-		errorResponse := &ErrorResponse{
-			Error:         "Let's encrypt user not found",
-			originalError: err}
-		SendError(w, errorResponse)
-		return
+		return err
 	}
 	_, err = registerUser(legoUser)
 	if err != nil {
-		errorResponse := &ErrorResponse{
-			Error:         "Could not register user",
-			originalError: err}
-		SendError(w, errorResponse)
-		return
+		return err
 	}
-	message := fmt.Sprintf("User successfully created: %s", &legoUser.Registration)
-	response := &SuccessResponse{
-		Success: true,
-		Message: message}
-	SendJson(w, response)
-	return
+	return nil
 }
 
 func GenerateCerts(domains []string, email string) error {
@@ -263,16 +231,57 @@ func saveCertToDisk(certificates acme.CertificateResource, certPath string) {
 	}
 }
 
-func main() {
+func startServer() {
 	wellKnownDir := filepath.Join(WEBROOT_LOCATION, ".well-known")
 	fs := http.StripPrefix("/.well-known/", http.FileServer(http.Dir(wellKnownDir)))
 	http.Handle("/.well-known/", fs)
 	log.Printf("Serving static files from : %s", wellKnownDir)
 	http.HandleFunc("/health", healthHandler)
-	http.HandleFunc("/register", registrationHandler)
-	http.HandleFunc("/generate", generateHandler)
 	http.HandleFunc("/", healthHandler)
 	httpPort := Getenv("HTTP_PORT", "80")
 	log.Printf("HTTP Server listening on port: %s", httpPort)
 	http.ListenAndServe(":"+httpPort, nil)
+}
+
+func main() {
+	log.Printf("Start server")
+	go startServer()
+	log.Printf("Start IP lookup")
+	domain := Getenv("DOMAINS", "")
+	if domain == "" {
+		fmt.Printf("No `DOMAIN` provided as env: %s", domain)
+		os.Exit(1)
+	}
+
+	for {
+		var err error
+		currentHealthId, err = newUUID()
+		if err != nil {
+			log.Printf("Error generating uuid: %s", err)
+			continue
+		}
+		resp, err := http.Get("http://" + domain)
+		if err != nil || resp.StatusCode != 200 {
+			log.Printf("Error making GET request to : %s, Status Code: %s", err, resp.StatusCode)
+			continue
+		}
+		body, ioErr := ioutil.ReadAll(resp.Body)
+		res := HealthResponse{}
+		jErr := json.Unmarshal([]byte(body), &res)
+		if ioErr != nil || jErr != nil {
+			log.Printf("Error reading/parsing body: %s, %s", ioErr, jErr)
+			continue
+		}
+		if res.Id != currentHealthId {
+			log.Printf("Different health id. Possibly cached: %s != %s", res.Id, currentHealthId)
+			continue
+		}
+		break
+	}
+	log.Printf("Start registring user")
+	register()
+	log.Printf("Start generating certs")
+	generate()
+	log.Printf("Cert successfully created")
+	os.Exit(0)
 }
