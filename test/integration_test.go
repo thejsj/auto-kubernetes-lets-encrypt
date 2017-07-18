@@ -183,9 +183,13 @@ func TestCreatingOfDNSEntry(t *testing.T) {
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
 		failed = true
-		t.Fatalf("Error creating DNS entry: %s, %s", resp.StatusCode, err)
+		t.Fatalf("Error creating DNS entry: %s", err)
+	}
+	if resp.StatusCode != 200 {
+		failed = true
+		t.Fatalf("Error creating DNS entry (Status code is not 200): %s", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
@@ -331,9 +335,11 @@ func TestCertsFound(t *testing.T) {
 }
 
 func tearDown() {
-	DeleteNamespace()
-	DeleteFiles()
-	DeleteDNSEntry()
+	if os.Getenv("NO_TEARDOWN") != "" {
+		DeleteNamespace()
+		DeleteFiles()
+		DeleteDNSEntry()
+	}
 }
 
 func DeleteNamespace() error {
@@ -365,8 +371,8 @@ func DeleteFiles() error {
 }
 
 func DeleteDNSEntry() error {
-	log.Printf("Delete DNS entry: %s, %s", ZONE_ID, dnsRecordId)
 	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records/%s", ZONE_ID, dnsRecordId)
+	log.Printf("Delete DNS entry: %s, %s, %s", ZONE_ID, dnsRecordId, url)
 	req, err := http.NewRequest("DELETE", url, nil)
 	req.Header.Set("X-Auth-Email", CLOUDFLARE_EMAIL)
 	req.Header.Set("X-Auth-Key", CLOUDFLARE_API_KEY)
