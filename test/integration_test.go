@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -167,6 +168,28 @@ func TestCreatingOfDNSEntry(t *testing.T) {
 	defer resp.Body.Close()
 }
 
+func TestDNSResolution(t *testing.T) {
+	if failed {
+		t.SkipNow()
+	}
+	t.Log("Start checking for DNS resolution")
+	url := fmt.Sprintf("http://%s.%s", testId, DOMAIN)
+	for {
+		ips, err := net.LookupIP(url)
+		if err != nil {
+			t.Log("Error looking up IP for DNS entry: %s", err)
+			continue
+		}
+		if ips[0] != serviceIPaddress {
+			t.Log("Error looking up IP for DNS entry: %s", err)
+			log.Printf("IP address is different: %s, %s", ips, serviceIPaddress)
+			continue
+		}
+		log.Printf("Ips: %s", ips)
+		break
+	}
+}
+
 // #7 It should wait for the Service to be healthy
 func TestHealth(t *testing.T) {
 	if failed {
@@ -177,12 +200,6 @@ func TestHealth(t *testing.T) {
 	log.Printf("Start! %s", url)
 	for {
 		time.Sleep(1000 * time.Millisecond)
-		// NOTE: Mac only
-		err := exec.Command("killall", "-HUP", "mDNSResponder").Run()
-		if err != nil {
-			failed = true
-			t.Fatalf("Error clearing DNS cache: %s", err)
-		}
 		log.Printf("request... %s", url)
 		resp, err := http.Get(url)
 		if err != nil || resp.StatusCode != 200 {
