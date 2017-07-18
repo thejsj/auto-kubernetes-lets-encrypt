@@ -19,7 +19,12 @@ type SecretUpdateTemplate struct {
 	Data       map[string]string `json:"data"`
 }
 
-func NewSecretUpdate(name string, namespace string, data map[string]string) SecretUpdateTemplate {
+func NewSecretUpdate(name string, data map[string]string) (SecretUpdateTemplate, error) {
+	namespace, err := getNamespace()
+	log.Printf("Saving updates: %s, %s", data, namespace)
+	if err != nil {
+		return SecretUpdateTemplate{}, err
+	}
 	metadata := make(map[string]string)
 	metadata["name"] = name
 	metadata["namespace"] = namespace
@@ -28,7 +33,7 @@ func NewSecretUpdate(name string, namespace string, data map[string]string) Secr
 		ApiVersion: "v1",
 		Metadata:   metadata,
 		Data:       data,
-	}
+	}, nil
 }
 
 var NAMESPACE_LOCATION = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"

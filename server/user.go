@@ -103,28 +103,25 @@ func saveRegistration(user LegoUser) error {
 		log.Printf("User has no registration", user)
 		return errors.New("User has no registration")
 	}
-	secretName := Getenv("LETS_ENCRYPT_USER_SECRET_NAME", "")
+	secretName := Getenv("SECRET_NAME", "")
 	if secretName == "" {
-		return errors.New("Environment variable `LETS_ENCRYPT_USER_SECRET_NAME` required")
+		return errors.New("Environment variable `SECRET_NAME` required for saving certs")
 	}
 	updates := make(map[string]string)
 	log.Printf("Registratio: %s", *user.Registration)
-	updatesJson, err := json.Marshal(*user.Registration)
+	registrationUpdatesJson, err := json.Marshal(*user.Registration)
 	if err != nil {
 		return err
 	}
-	encodedJson := base64.StdEncoding.EncodeToString(updatesJson)
-	updates["registration"] = encodedJson
-	namespace, err := getNamespace()
-	log.Printf("Saving updates: %s, %s", updates, namespace)
+	updates["registration"] = base64.StdEncoding.EncodeToString(registrationUpdatesJson)
+	update, err := NewSecretUpdate(secretName, updates)
 	if err != nil {
 		return err
 	}
-	update := NewSecretUpdate(secretName, namespace, updates)
 	err = updateSecret(secretName, update)
 	if err != nil {
 		return err
 	}
-	os.Setenv("LETS_ENCRYPT_USER_REGISTRATION", string(updatesJson))
+	os.Setenv("LETS_ENCRYPT_USER_REGISTRATION", string(registrationUpdatesJson))
 	return nil
 }
