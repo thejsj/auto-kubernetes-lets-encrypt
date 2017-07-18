@@ -34,9 +34,14 @@ var JOB_NAME string = "auto-kubernetes-lets-encrypt"
 var CERT_SECRET_NAME string = "auto-kubernetes-lets-encrypt-certs"
 var REGISTRATION_SECRET_NAME string = "auto-kubernetes-lets-encrypt-user"
 
-type K8sResponse struct {
-	Data   map[string]string `json:"data"`
+type K8sJobResponse struct {
+	Status map[string]string `json:"status"`
+}
+type K8sServiceResponse struct {
 	Status K8sStatusResponse `json:"status"`
+}
+type K8sSecretResponse struct {
+	Data map[string]string `json:"data"`
 }
 type K8sStatusResponse struct {
 	LoadBalancer K8sLoadBalancerResponse `json:"loadBalancer"`
@@ -135,7 +140,7 @@ func TestCreatingOfIp(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		res := K8sResponse{}
+		res := K8sServiceResponse{}
 		err = json.Unmarshal([]byte(output), &res)
 		if err != nil {
 			continue
@@ -260,8 +265,29 @@ func TestHealth(t *testing.T) {
 
 // #8 It should have successfully completed the job
 func TestJobCompletion(t *testing.T) {
-	// TODO: Check cluster for registration property in secret
-	t.SkipNow()
+	if failed {
+		t.SkipNow()
+	}
+	fullCommand := fmt.Sprintf("kubectl --namespace %s get secret %s -o json", testId, REGISTRATION_SECRET_NAME)
+	for {
+		log.Printf("Get job result: %s", fullCommand)
+		err, output := execCommand(fullCommand)
+		if err != nil {
+			continue
+		}
+		res := K8sJobResponse{}
+		err = json.Unmarshal([]byte(output), &res)
+		log.Printf("Get job result: %s, %s", output, res)
+		// Check if it's successful
+		if err != nil {
+			continue
+		}
+		succeeded := res.Status["succeeded"]
+		if succeeded != "1" {
+			continue
+		}
+		break
+	}
 }
 
 // #9 It should have successfully added the registration field
@@ -270,19 +296,24 @@ func TestRegistrationCreation(t *testing.T) {
 		t.SkipNow()
 	}
 	fullCommand := fmt.Sprintf("kubectl --namespace %s get secret %s -o json", testId, REGISTRATION_SECRET_NAME)
-	log.Printf("Get job result: %s", fullCommand)
+	log.Printf("Get data from secret: %s", fullCommand)
 	err, output := execCommand(fullCommand)
 	if err != nil {
 		failed = true
 		t.Fatalf("Error getting secret: %s", err)
 		return
 	}
-	res := K8sResponse{}
+	res := K8sSecretResponse{}
 	err = json.Unmarshal([]byte(output), &res)
 	registration := res.Data["registration"]
-	if err != nil || res.Data["registration"] == "" {
+	if err != nil {
 		failed = true
-		t.Fatalf("Error marshalling JSON: %s / %s", err, res.Data["registration"])
+		t.Fatalf("Error marshalling JSON: %s", err)
+		return
+	}
+	if res.Data["registration"] == "" {
+		failed = true
+		t.Fatalf("Registration not found: %s", res.Data, output)
 		return
 	}
 	log.Printf("Registration: %s", registration)
@@ -301,7 +332,7 @@ func TestCertsFound(t *testing.T) {
 		t.Fatalf("Error getting secret: %s", err)
 		return
 	}
-	res := K8sResponse{}
+	res := K8sSecretResponse{}
 	err = json.Unmarshal([]byte(output), &res)
 	crt := res.Data[testId+"."+DOMAIN+".crt"]
 	if err != nil || crt == "" {

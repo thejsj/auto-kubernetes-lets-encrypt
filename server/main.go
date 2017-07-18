@@ -255,40 +255,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	for {
-		time.Sleep(1000 * time.Millisecond)
-		var err error
-		currentHealthId, err = newUUID()
+	log.Printf("Start registring user")
+	err := register()
+	if err != nil {
+		log.Printf("Error registring user: %s", err)
+		os.Exit(1)
+	}
+
+	retries := 0
+	for retries < 10 { // Add retry logic in order to workaround DNS resolution
+		time.Sleep(5000 * time.Millisecond)
+		log.Printf("Attempt to generate certs")
+		retries = retries + 1
+		err = generate()
 		if err != nil {
-			log.Printf("Error generating uuid: %s", err)
-			continue
-		}
-		resp, err := http.Get("http://" + domain)
-		if err != nil {
-			log.Printf("Error making GET request to : %s", err)
-			continue
-		}
-		if resp.StatusCode != 200 {
-			log.Printf("Error making GET request to : %s, Status Code: %s", err, resp)
-			continue
-		}
-		body, ioErr := ioutil.ReadAll(resp.Body)
-		res := HealthResponse{}
-		jErr := json.Unmarshal([]byte(body), &res)
-		if ioErr != nil || jErr != nil {
-			log.Printf("Error reading/parsing body: %s, %s", ioErr, jErr)
-			continue
-		}
-		if res.Id != currentHealthId {
-			log.Printf("Different health id. Possibly cached: %s != %s", res.Id, currentHealthId)
+			log.Printf("Error generating certs: %s", err)
 			continue
 		}
 		break
 	}
-	log.Printf("Start registring user")
-	register()
-	log.Printf("Start generating certs")
-	generate()
+
+	if retries == 10 {
+		log.Printf("Exiting after attempting to generate certs 10 times")
+		os.Exit(1)
+	}
+
 	log.Printf("Cert successfully created")
 	os.Exit(0)
 }
