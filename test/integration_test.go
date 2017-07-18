@@ -245,7 +245,7 @@ func TestRegistrationCreation(t *testing.T) {
 }
 
 // #10 It should have successfully added the certs
-func TestCertCreation(t *testing.T) {
+func TestCertsFound(t *testing.T) {
 	// TODO: Check cluster for registration property in secret
 	t.SkipNow()
 }

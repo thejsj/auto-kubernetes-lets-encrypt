@@ -6,6 +6,7 @@ ADD ./*.go /app/
 WORKDIR /app/
 RUN go build -o /app/main
 RUN mkdir -p /var/www/.well-known/
+RUN mkdir -p /etc/auto-kubernetes-lets-encrypt/certs/
 RUN echo "This is the index for .well-known" >> /var/www/.well-known/index.html
 
 EXPOSE 80

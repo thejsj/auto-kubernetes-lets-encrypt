@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -178,7 +182,57 @@ func GenerateCerts(domains []string, email string) error {
 	// Each certificate comes back with the cert bytes, the bytes of the client's
 	// private key, and a certificate URL. SAVE THESE TO DISK.
 	fmt.Printf("%#v\n", certificates)
+	log.Printf("Save certs to disk")
+	saveCertToDisk(certificates, "/etc/auto-kubernetes-lets-encrypt/certs/")
 	return nil
+}
+
+func saveCertToDisk(certRes acme.CertificateResource, certPath string) {
+	// We store the certificate, private key and metadata in different files
+	// as web servers would not be able to work with a combined file.
+	certOut := path.Join(certPath, certRes.Domain+".crt")
+	privOut := path.Join(certPath, certRes.Domain+".key")
+	pemOut := path.Join(certPath, certRes.Domain+".pem")
+	metaOut := path.Join(certPath, certRes.Domain+".json")
+	issuerOut := path.Join(certPath, certRes.Domain+".issuer.crt")
+
+	err := ioutil.WriteFile(certOut, certRes.Certificate, 0600)
+	if err != nil {
+		log.Fatalf("Unable to save Certificate for domain %s\n\t%s", certRes.Domain, err.Error())
+	}
+
+	if certRes.IssuerCertificate != nil {
+		err = ioutil.WriteFile(issuerOut, certRes.IssuerCertificate, 0600)
+		if err != nil {
+			log.Fatalf("Unable to save IssuerCertificate for domain %s\n\t%s", certRes.Domain, err.Error())
+		}
+	}
+
+	if certRes.PrivateKey != nil {
+		// if we were given a CSR, we don't know the private key
+		err = ioutil.WriteFile(privOut, certRes.PrivateKey, 0600)
+		if err != nil {
+			log.Fatalf("Unable to save PrivateKey for domain %s\n\t%s", certRes.Domain, err.Error())
+		}
+
+		err = ioutil.WriteFile(pemOut, bytes.Join([][]byte{certRes.Certificate, certRes.PrivateKey}, nil), 0600)
+		if err != nil {
+			log.Fatalf("Unable to save Certificate and PrivateKey in .pem for domain %s\n\t%s", certRes.Domain, err.Error())
+		}
+	} else {
+		// we don't have the private key; can't write the .pem file
+		log.Fatalf("Unable to save pem without private key for domain %s\n\t%s; are you using a CSR?", certRes.Domain, err.Error())
+	}
+
+	jsonBytes, err := json.MarshalIndent(certRes, "", "\t")
+	if err != nil {
+		log.Fatalf("Unable to marshal CertResource for domain %s\n\t%s", certRes.Domain, err.Error())
+	}
+
+	err = ioutil.WriteFile(metaOut, jsonBytes, 0600)
+	if err != nil {
+		log.Fatalf("Unable to save CertResource for domain %s\n\t%s", certRes.Domain, err.Error())
+	}
 }
 
 func main() {
