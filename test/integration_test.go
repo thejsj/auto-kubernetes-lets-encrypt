@@ -180,15 +180,17 @@ func TestDNSResolution(t *testing.T) {
 		t.SkipNow()
 	}
 	t.Log("Start checking for DNS resolution")
-	url := fmt.Sprintf("http://%s.%s", testId, DOMAIN)
+	url := fmt.Sprintf("%s.%s", testId, DOMAIN)
 	for {
 		time.Sleep(1000 * time.Millisecond)
 		ips, err := net.LookupIP(url)
 		if err != nil {
+			log.Printf("Error looking up IP: %s", err)
 			t.Log("Error looking up IP for DNS entry: %s", err)
 			continue
 		}
 		if ips[0].String() != serviceIPaddress {
+			log.Printf("IP addresses do not match: %s, %s", serviceIPaddress, ips)
 			t.Log("Error looking up IP for DNS entry: %s", err)
 			continue
 		}
@@ -277,11 +279,13 @@ func TestRegistrationCreation(t *testing.T) {
 	}
 	res := K8sResponse{}
 	err = json.Unmarshal([]byte(output), &res)
+	registration := res.Data["registration"]
 	if err != nil || res.Data["registration"] == "" {
 		failed = true
 		t.Fatalf("Error marshalling JSON: %s / %s", err, res.Data["registration"])
 		return
 	}
+	log.Printf("Registration: %s", registration)
 }
 
 // #10 It should have successfully added the certs
@@ -299,11 +303,13 @@ func TestCertsFound(t *testing.T) {
 	}
 	res := K8sResponse{}
 	err = json.Unmarshal([]byte(output), &res)
-	if err != nil || res.Data[testId+"."+DOMAIN+".crt"] == "" {
+	crt := res.Data[testId+"."+DOMAIN+".crt"]
+	if err != nil || crt == "" {
 		failed = true
 		t.Fatalf("Error marshalling JSON: %s / %s", err, res.Data[testId+"."+DOMAIN+".crt"])
 		return
 	}
+	log.Printf("Cert: %s", crt)
 }
 
 func tearDown() {
