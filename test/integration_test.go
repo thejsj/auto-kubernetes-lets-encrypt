@@ -35,15 +35,19 @@ var CERT_SECRET_NAME string = "auto-kubernetes-lets-encrypt-certs"
 var REGISTRATION_SECRET_NAME string = "auto-kubernetes-lets-encrypt-user"
 
 type K8sJobResponse struct {
-	Status map[string]string `json:"status"`
+	Status K8sJobStatusResponse `json:"status"`
+}
+type K8sJobStatusResponse struct {
+	Succeeded int `json:"succeeded"`
+	Failed    int `json:"failed"`
 }
 type K8sServiceResponse struct {
-	Status K8sStatusResponse `json:"status"`
+	Status K8sServiceStatusResponse `json:"status"`
 }
 type K8sSecretResponse struct {
 	Data map[string]string `json:"data"`
 }
-type K8sStatusResponse struct {
+type K8sServiceStatusResponse struct {
 	LoadBalancer K8sLoadBalancerResponse `json:"loadBalancer"`
 }
 type K8sLoadBalancerResponse struct {
@@ -233,42 +237,12 @@ func TestHealth(t *testing.T) {
 	}
 }
 
-// #7.2 It should register the user
-// func TestUserCreation(t *testing.T) {
-// if failed {
-// t.SkipNow()
-// }
-// t.Log("Register user")
-// url := fmt.Sprintf("http://%s.%s/register", testId, DOMAIN)
-// resp, err := http.Get(url)
-// if err != nil || resp.StatusCode != 200 {
-// failed = true
-// t.Fatalf("Error registering user: %s", err)
-// }
-// defer resp.Body.Close()
-// }
-
-// #7.3 It should generate the certs
-// func TestCertCreation(t *testing.T) {
-// if failed {
-// t.SkipNow()
-// }
-// url := fmt.Sprintf("http://%s.%s/generate", testId, DOMAIN)
-// resp, err := http.Get(url)
-// if err != nil || resp.StatusCode != 200 {
-// failed = true
-// t.Fatalf("Error registering user: %s", err)
-// return
-// }
-// defer resp.Body.Close()
-// }
-
 // #8 It should have successfully completed the job
 func TestJobCompletion(t *testing.T) {
 	if failed {
 		t.SkipNow()
 	}
-	fullCommand := fmt.Sprintf("kubectl --namespace %s get secret %s -o json", testId, REGISTRATION_SECRET_NAME)
+	fullCommand := fmt.Sprintf("kubectl --namespace %s get job %s -o json", testId, JOB_NAME)
 	for {
 		log.Printf("Get job result: %s", fullCommand)
 		err, output := execCommand(fullCommand)
@@ -277,13 +251,13 @@ func TestJobCompletion(t *testing.T) {
 		}
 		res := K8sJobResponse{}
 		err = json.Unmarshal([]byte(output), &res)
-		log.Printf("Get job result: %s, %s", output, res)
+		log.Printf("Queried job result: %s, %s", output, res)
 		// Check if it's successful
 		if err != nil {
 			continue
 		}
-		succeeded := res.Status["succeeded"]
-		if succeeded != "1" {
+		succeeded := res.Status.Succeeded
+		if succeeded != 1 {
 			continue
 		}
 		break
@@ -344,7 +318,7 @@ func TestCertsFound(t *testing.T) {
 }
 
 func tearDown() {
-	// DeleteNamespace()
+	DeleteNamespace()
 	DeleteFiles()
 }
 
@@ -391,15 +365,8 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	// It should wait for the job to finish
-	// It should check for the secret to exist
-	// It should check for ingress controller to be updated
 	retCode := m.Run()
 	tearDown()
-	// It should delete DNS entry from cloudflare
-	// It should delete service from kubernetes
-	// It should delete job from kubernetes
-	// It should delete service from kubernetes
 	os.Exit(retCode)
 }
 
