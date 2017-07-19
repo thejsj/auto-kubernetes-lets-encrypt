@@ -2,21 +2,30 @@
 
 _Generate TSL/SSL certs for your kubernetes ingress automatically with Let's Encrypt_
 
-## How It Works
+## How To Use
 
-## Routes
+#### 1. Generate The Kubernetes Resources
 
-`/`
+```
+./generate-resources $EMAIL $DOMAIN
+```
 
-`/health`
+#### 2. Apply To Cluster
 
-`/health/extended`
+```
+kubectl apply -f ./kubernetes-resources.yml
+```
 
-`/status`
+#### 3. Update DNS
 
-### TODO
+```
+watch "kubectl get svc auto-kubernetes-lets-encrypt"
+```
 
-1. Fix saving of registration
-2. Fix saving of certificates
-3. Fix Re-loading of registration
-4. Fix handler to allow for more job-centric approach
+Take the IP address from the service and update your DNS settings.
+
+#### 4. Wait for Job and Get Certificates
+
+```
+watch "kubectl get job auto-kubernetes-lets-encrypt"
+```
