@@ -1,6 +1,15 @@
 apiVersion: v1
 kind: Secret
 metadata:
+  name: auto-kubernetes-lets-encrypt-user
+type: Opaque
+data:
+  private_key: *PRIVATE_KEY_BASE64*
+  registration: ""
+---
+apiVersion: v1
+kind: Secret
+metadata:
   name: auto-kubernetes-lets-encrypt-certs
 type: Opaque
 # Create an empty secret (with no data) in order for the update to work
@@ -21,7 +30,7 @@ spec:
       containers:
       - image: quay.io/hiphipjorge/auto-kubernetes-lets-encrypt:v0.0.19
         name: auto-kubernetes-lets-encrypt
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         livenessProbe:
           httpGet:
             path: /health
@@ -35,13 +44,11 @@ spec:
           containerPort: 80
         env:
         - name: DOMAINS
-          value: go-test.jorge.fail
+          value: *DOMAIN*
         - name: EMAIL
-          value: jorge.silva@thejsj.com
+          value: *EMAIL*
         - name: SECRET_NAME
           value: auto-kubernetes-lets-encrypt-certs
-        - name: CA_SERVER
-          value: https://acme-staging.api.letsencrypt.org/directory
         - name: LETS_ENCRYPT_USER_SECRET_NAME
           value: auto-kubernetes-lets-encrypt-user
         - name: LETS_ENCRYPT_USER_CERT
@@ -63,8 +70,8 @@ metadata:
 spec:
   selector:
     app: auto-kubernetes-lets-encrypt
-  type: NodePort
+  type: LoadBalancer
   ports:
   - protocol: "TCP"
-    nodePort: 31112
+    nodePort: *NODE_PORT*
     port: 80
