@@ -362,7 +362,7 @@ func DeleteFiles() error {
 
 	for _, file := range files {
 		if strings.Contains(file.Name(), testId) {
-			p := path.Join("./", file.Name())
+			p := path.Join("./test-fixtures/", file.Name())
 			log.Printf("Delete file: %s", p)
 			os.Remove(p)
 		}
