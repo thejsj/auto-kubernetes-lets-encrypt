@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 
@@ -33,18 +34,22 @@ func (u LegoUser) GetPrivateKey() crypto.PrivateKey {
 func getUser(email string) (LegoUser, error) {
 	// Create a user. New accounts need an email and private key to start.
 	log.Printf("Get user")
-	privateKeyStr := Getenv("LETS_ENCRYPT_USER_CERT", "")
+	privateKeyStr := Getenv("LETS_ENCRYPT_USER_PRIVATE_KEY", "")
 	var user LegoUser
 	if privateKeyStr == "" {
 		log.Printf("Private key not found for user")
-		return user, errors.New("Environment variable `LETS_ENCRYPT_USER_CERT` required")
+		return user, errors.New("Environment variable `LETS_ENCRYPT_USER_PRIVATE_KEY ` required")
 	}
 	log.Printf("Decoding pem key")
-	pemKey, _ := pem.Decode([]byte(privateKeyStr))
-	key, parseError := x509.ParsePKCS1PrivateKey(pemKey.Bytes)
-	if parseError != nil {
-		log.Printf("Error parsing key")
-		return user, parseError
+	pemKey, decodeErr := pem.Decode([]byte(privateKeyStr))
+	if pemKey == nil {
+		log.Printf("Error decoding private key: (Rest: %s)", decodeErr)
+		return user, fmt.Errorf("Error decoding private key (Rest: %s)", decodeErr)
+	}
+	key, parseErr := x509.ParsePKCS1PrivateKey(pemKey.Bytes)
+	if parseErr != nil {
+		log.Printf("Error parsing private key: %s", parseErr)
+		return user, parseErr
 	}
 	log.Printf("Private key found")
 	user = LegoUser{

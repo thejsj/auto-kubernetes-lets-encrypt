@@ -53,7 +53,7 @@ spec:
           value: https://acme-staging.api.letsencrypt.org/directory
         - name: LETS_ENCRYPT_USER_SECRET_NAME
           value: auto-kubernetes-lets-encrypt-user
-        - name: LETS_ENCRYPT_USER_CERT
+        - name: LETS_ENCRYPT_USER_PRIVATE_KEY
           valueFrom:
             secretKeyRef:
               name: auto-kubernetes-lets-encrypt-user
