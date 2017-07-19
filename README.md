@@ -54,3 +54,5 @@ private_key:			1675 bytes
 registration:			668 bytes
 $DOMAIN.crt:		1801 bytes
 ```
+
+![screenshot.png](screenshot.png)
