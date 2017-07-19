@@ -1,2 +1,5 @@
 private-key.pem
-kubernetes-resources.yml
+kubernetes-resources-part-1.yml
+kubernetes-resources-part-2.yml
+server/test-fixtures/*.yml
+!server/test-fixtures/kubernetes-resources.yml

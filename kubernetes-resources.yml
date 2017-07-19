@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auto-kubernetes-lets-encrypt-user
+type: Opaque
+data:
+  private_key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcEFJQkFBS0NBUUVBdlNiWnI0M3BuSERSVUt5TVhQZFVVSUs2WmVPcGxwRW12UWNyeHdmNTNKZlBuelpTCjhsWVBFM29wRzRhYnlwODBMdFk5R2EvWXF5N3RIeWVSMEYvUXRKMG5rOEdOUitTMGpybDVKcHdFZ2p1L3c3V0kKbTVtRmkxdkxqbnB4Wlg2TThpVklhRlVXZW42RE9ITXlURFBsdFFiekFIME5iek10UFhyZjZsNnFjSXFzUDBVTQp5UHhORWsxSURiNW9NNVVHcWprZ25SeThTY2JnMHM2MHlBU3J2czIwaUNrWUl2dlJOYnhtWHFuSTFvQUhjZ092ClprNFM3UWJHamUrMjgwcksxdkQzZ3pJd3R5NlRGaWtvS3paTWNkakJnajNNamVSYUhnUHBCWWxrdFYxL1kyd1YKY0RyaVFGVU95d1NxeDB5YXBEaEE4d3FxZXh2Qy9QK25VN1V4R1FJREFRQUJBb0lCQVFDRGFxT2hxZ3BkeTdCUgp5YUEzMHdyOGFPZFNkUXRWZGdHaElZTlQ1QUhBTnFWa3E1eVRqQ0VyV2h1SGFVMkNTSHc3OGxNL0xvSnQ1TXVRCmNyQ0hRcHJCY2RLV2dNcEU0ZXhrb1E1QU9mT1QvQ2t1czBoM093R2lvaU5hR1U0Qnd4dnYvT0ZDdzZNN2RmeDcKVXVYbU5jUnBzcXRRY3BITDZaV0wrbnZwM04yMEZDSXU5Vm5rK2VtSkRkTzNRb3FXWmtRUGxJVVozVGZLZ25ENwpZbk80SWRLYUVSOWt3eVpzTGRNakE3MCtMa1kwNVViTTRMUXZsckVkd0kzdStDK2pOQklKVkVIN0JHRFNIa2tPCmZhUlBEUnRLZlNIYVZ2MjR1VUVXWWUrMWZJaHZTRjhsdkxzY1VOTHZiaHd6OHVTRGNpQldHVzdaSTJJbFRYblcKSURuY3VMZVJBb0dCQU93NmxRTkFMQkNIYUJYYjBkOVNnczRCK0lycE1OYVZlUkhnbzQrY3AzbEJhVHJnQ0FQTQpGOVdTU1UzTzJ6S2VBUGRpWjh4L0x1cExobWNOczhEU3hVVW1UT0tyVTludjVkY2t6em5uUklNWkVmRFFHTlRRClo1ZnpNcGh3MGNzNHVnSU5iVkxIWHZTQkZ2VklzRW1pNDNpWGpLL0s1NzV6elRNVEZrQ1hhSTB0QW9HQkFNejcKbVZpelBCZDhkMmtwNlNhaXNWQVdFYjlKN1p2QUNyK2RiVVlvWVpXSVpaamJBM2l0dmcyZEpjOTNlMldxWTkwZwpzcWdCODdZVjJIRkZJY2xHbWwrOHZReGMvekRqRXhSZ2k0M2lWVjNmalVxbGZVOStuUU8vYlJBbkZNQU5IYWpmCjFuR2FTc2JIQ09vdmwyT1dCYjVIMUV1VDRYdUVWUDVJR0poTlQ5OGRBb0dBTnNnSEVtL3BTQlArb1VNTzBua3gKK0ZBZ3NTWU91MVNDZFJEaEhVYTQxN2ZCalhPeXFCN0dVRExTYVFiVmNsR042OUNZUGFZbzNSQ1NwSWRhN2haeQp4T3h5M0FYYk5pa1o1ZUNWWmRvcDJ6VVBJZ2RBR3VvUmUvMWIrRm9CYk4xRTFZRURuelM0NG42bE1sQ2ZBUlNUCko3NE5WQjc3eXdEVHowcFgyTGJEK2lrQ2dZRUFtMkZFbGxZWEFQNmFUWjgxV3RJTWNsYW9VVVlxMU5zM3lwUDgKMXllWkFRNkpaTnJ2d0xTQzBqTURERWJYeFBMcURCN1REa09jaDdQN2c3RVJzVTdSaWl5NWFQdTlmVU5EblRpcAowSDEybEZmMjlGU0pybzZkV3MvcVRrb3hrbnJldHJvbUJhc2RiNXhFQjdEWG91ZC9wd012eTdKblE0ZkdIWkp0CkFsWG9hNGtDZ1lBM3VhZkpVTGJuWlVqcU91c0NIZmxUbFl2M2hQVUE1ZFZxYnZSQW1CYVNTYjlKS3hMNHJ4b0kKNE5pbVdQOEYrMjVwZ3I3YjFFeks4aXQyRFI5bkFaK2J6eDFjejVseUpZdUJoUm9OZXdScWdySHhQdDU3dUExTQorTkw5aUFTakk0SmtYcUxZNVk0VzE4NFpMUHpiSDBzTGZvbDM1MndLY1BUNXB2T2ZXZjZWQUE9PQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=
+  registration: ""
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auto-kubernetes-lets-encrypt-certs
+type: Opaque
+# Create an empty secret (with no data) in order for the update to work
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auto-kubernetes-lets-encrypt
+  labels:
+    app: auto-kubernetes-lets-encrypt
+spec:
+  template:
+    metadata:
+      name: auto-kubernetes-lets-encrypt
+      labels:
+        app: auto-kubernetes-lets-encrypt
+    spec:
+      containers:
+      - image: quay.io/hiphipjorge/auto-kubernetes-lets-encrypt:44122121c72ea670758360fcf7bb4bbbbaef2bb4
+        name: auto-kubernetes-lets-encrypt
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+        ports:
+        - name: main
+          containerPort: 80
+        env:
+        - name: DOMAINS
+          value: wow-wow-wow.jorge.fail
+        - name: EMAIL
+          value: jorge.silva@thejsj.com
+        - name: SECRET_NAME
+          value: auto-kubernetes-lets-encrypt-certs
+        - name: LETS_ENCRYPT_USER_SECRET_NAME
+          value: auto-kubernetes-lets-encrypt-user
+        - name: LETS_ENCRYPT_USER_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: auto-kubernetes-lets-encrypt-user
+              key: private_key
+        - name: LETS_ENCRYPT_USER_REGISTRATION
+          valueFrom:
+            secretKeyRef:
+              name: auto-kubernetes-lets-encrypt-user
+              key: registration
+      restartPolicy: Never
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auto-kubernetes-lets-encrypt
+spec:
+  selector:
+    app: auto-kubernetes-lets-encrypt
+  type: LoadBalancer
+  ports:
+  - protocol: "TCP"
+    nodePort: 31888
+    port: 80
